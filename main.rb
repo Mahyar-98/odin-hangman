@@ -1,4 +1,4 @@
-# This class loads an array of words that the computer guesses a word from when the game starts
+# This class loads an array of words that the computer guesses from when the game starts
 class Dictionary
   DICTIONARY_FILE = 'google-10000-english-no-swears.txt'
   attr_reader :words, :computer_word
@@ -22,10 +22,11 @@ class Dictionary
 end
 
 class Display
-  attr_accessor :secret_word
+  attr_accessor :secret_word, :guesses
   def initialize(num_char)
     @num_char = num_char
     @secret_word = '_' * num_char
+    @guesses = 'Previous guesses: '
   end
 
   def update_secret_word(word, char)
@@ -36,6 +37,14 @@ class Display
 
   def incorrect_guess(char)
     puts "Sorry! The letter '#{char}' does not exist in the word."
+    guesses.concat("#{char.upcase} ")
+    p guesses
+  end
+
+  def correct_guess(char)
+    puts "Nice guess! The letter '#{char}' exists in the word."
+    guesses.concat("#{char} ")
+    p guesses
   end
 end
 
@@ -49,6 +58,18 @@ class Game
     @player = Player.new
     @dictionary = Dictionary.new
     @computer_word = @dictionary.computer_word
+  end
+
+  def play_turn
+    puts guesses
+    puts "Please enter a letter:"
+    select_char = gets.chomp
+    if char_in_word?(select_char)
+      update_secret_word(computer_word, select_char)
+      correct_guess(select_char)
+    else
+      incorrect_guess(select_char)
+    end
   end
 end
 
