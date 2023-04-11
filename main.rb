@@ -1,3 +1,5 @@
+require 'json'
+require 'pry-byebug'
 # This class loads an array of words that the computer guesses from when the game starts
 class Dictionary
   DICTIONARY_FILE = 'google-10000-english-no-swears.txt'
@@ -31,12 +33,18 @@ class Display
     @guesses = 'Previous guesses: '
   end
 
+  def welcome
+    puts 'Welcome to the hangman!'
+    puts '1. Start a new game'
+    puts '2. Load a game'
+  end
+
   def secret
     puts "The secret word is: #{@secret_word}"
   end
 
   def ask_for_letter
-    puts 'Please enter a letter (A-Z):'
+    puts 'Please enter a letter (A-Z) (If you want to save the game, type "save"):'
   end
 
   def invalid_choice(char)
@@ -76,6 +84,18 @@ class Display
   def lost
     puts "Sorry! You've lost the game. Good luck next time!"
   end
+
+  def save
+    puts 'The game was saved successfully!'
+  end
+
+  def load
+    puts 'The game was loaded successfully!'
+  end
+
+  def load_fail
+    puts 'The game failed to load!'
+  end
 end
 
 # This class dictates the rules of the game
@@ -91,9 +111,10 @@ class Game
   def get_letter
     display.ask_for_letter
     letter = gets.chomp
-    until letter.length == 1 && letter.match?(/^[[:alpha:]]+$/)
-      display.invalid_choice(letter)
-      letter = gets.chomp
+    save_game if (letter == 'save' || 'SAVE')
+    until (letter.length == 1 && letter.match?(/^[[:alpha:]]+$/)) || (letter == 'save' || 'SAVE')
+        display.invalid_choice(letter) 
+        letter = gets.chomp
     end
     letter.downcase
   end
@@ -103,18 +124,20 @@ class Game
     display.remaining_lives(@life)
     puts display.guesses
     display.secret
-    select_char = get_letter
-    if dictionary.char_in_word?(@computer_word, select_char)
-      display.update_secret_word(@computer_word, select_char)
-      display.correct_guess(select_char)
+    @select_char = get_letter
+    return nil if @select_char == 'save'
+    if dictionary.char_in_word?(@computer_word, @select_char)
+      display.update_secret_word(@computer_word, @select_char)
+      display.correct_guess(@select_char)
       puts display.secret_word
     else
-      display.incorrect_guess(select_char)
+      display.incorrect_guess(@select_char)
       @life -= 1
     end
   end
 
   def result(num_of_lives)
+    puts "\n\nThe secret word is << #{@computer_word} >>"
     if num_of_lives.positive?
       display.won
     else
@@ -123,10 +146,39 @@ class Game
   end
 
   def play_game
-    while display.secret_word.include?('-') && @life.positive?
+    display.welcome
+    @action = gets.chomp
+    load_game if @action == '2'
+    while display.secret_word.include?('-') && @life.positive? && @select_char != 'save'
       play_turn
     end
-    result(@life)
+    @select_char == 'save'? return : result(@life)
+  end
+
+  def save_game
+    @game_state = {
+      computer_word: @computer_word,
+      display: {
+        secret_word: @display.secret_word,
+        guesses: @display.guesses
+      },
+      life: @life
+    }
+    File.write('SAVE_FILE', JSON.generate(@game_state))
+    display.save
+  end
+
+  def load_game
+    if File.exist?('SAVE_FILE')
+      @saved_game_state = JSON.parse(File.read('SAVE_FILE'))
+      @computer_word = @saved_game_state['computer_word']
+      display.secret_word = @saved_game_state['display']['secret_word']
+      display.guesses = @saved_game_state['display']['guesses']
+      @life = @saved_game_state['life']
+      display.load
+    else
+      display.load_fail
+    end
   end
 end
 
